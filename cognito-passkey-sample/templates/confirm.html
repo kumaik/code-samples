@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}メール確認{% endblock %}
+
+{% block content %}
+<div style="max-width: 420px; margin: 3rem auto;">
+  <div class="card">
+    <h1 style="text-align:center; margin-bottom:0.5rem;">メール確認</h1>
+    <p style="text-align:center; color:#666; font-size:0.9rem; margin-bottom:1.5rem;">
+      登録したメールアドレスに届いた確認コードを入力してください
+    </p>
+    <form method="POST">
+      <input type="hidden" name="username" value="{{ username }}">
+      <div class="form-group">
+        <label for="code">確認コード</label>
+        <input type="text" id="code" name="code" required autofocus
+               inputmode="numeric" maxlength="6"
+               style="letter-spacing: 0.3em; font-size: 1.3rem; text-align: center;">
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%; margin-top:0.5rem;">
+        確認する
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}
