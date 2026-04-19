@@ -1,4 +1,4 @@
-# zenn-samples
+# code-samples
 
 [Zenn](https://zenn.dev) に掲載している記事のサンプルコードリポジトリです。
 
