@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}デジタル証明書を取得する{% endblock %}
+
+{% block content %}
+<div style="max-width: 480px;">
+  <div class="card">
+    <h1>デジタル証明書（VC）の発行</h1>
+    <p style="font-size:0.9rem; color:#555; margin-bottom:1.5rem;">
+      Microsoft Authenticator でスキャンすると、あなたの情報を証明する
+      デジタル証明書がウォレットに追加されます。
+    </p>
+
+    <!-- 初期状態: 発行ボタン -->
+    <div id="view-start">
+      <button class="btn btn-primary" onclick="startIssuance()">証明書を取得する</button>
+    </div>
+
+    <!-- QR コード表示 -->
+    <div id="view-qr" style="display:none; text-align:center;">
+      <p style="font-size:0.85rem; color:#555; margin-bottom:1rem;">
+        Microsoft Authenticator で下の QR コードをスキャンしてください。
+      </p>
+      <img id="qr-image" src="" alt="QR コード"
+           style="width:220px; height:220px; border:1px solid #ddd; border-radius:4px;">
+      <p id="qr-status" style="margin-top:1rem; font-size:0.88rem; color:#888;">
+        スキャン待ち...
+      </p>
+    </div>
+
+    <!-- 完了 -->
+    <div id="view-done" style="display:none; text-align:center;">
+      <p style="font-size:2rem; margin-bottom:0.5rem;">✓</p>
+      <p style="font-weight:bold; color:#27ae60;">発行完了</p>
+      <p style="font-size:0.88rem; color:#555; margin-top:0.5rem;">
+        Authenticator のウォレットに証明書が追加されました。
+      </p>
+      <button class="btn btn-secondary" style="margin-top:1.2rem;"
+              onclick="resetView()">もう一度発行する</button>
+    </div>
+
+    <!-- エラー -->
+    <div id="view-error" style="display:none; text-align:center;">
+      <p style="font-size:2rem; margin-bottom:0.5rem;">✗</p>
+      <p id="error-message" style="color:#e74c3c; font-size:0.9rem;"></p>
+      <button class="btn btn-secondary" style="margin-top:1.2rem;"
+              onclick="resetView()">再試行する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let _pollTimer = null;
+
+  function show(viewId) {
+    ['view-start', 'view-qr', 'view-done', 'view-error'].forEach(id => {
+      document.getElementById(id).style.display = id === viewId ? '' : 'none';
+    });
+  }
+
+  function resetView() {
+    if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+    show('view-start');
+  }
+
+  async function startIssuance() {
+    show('view-qr');
+    document.getElementById('qr-status').textContent = 'リクエスト中...';
+
+    try {
+      const resp = await fetch('/api/vc/issuance-request', { method: 'POST' });
+      const data = await resp.json();
+
+      if (!resp.ok || data.error) {
+        showError(data.error || '発行リクエストに失敗しました');
+        return;
+      }
+
+      // QR コード表示
+      document.getElementById('qr-image').src = 'data:image/png;base64,' + data.qrCode;
+      document.getElementById('qr-status').textContent = 'スキャン待ち...';
+
+      // ポーリング開始
+      _pollTimer = setInterval(() => poll(data.id), 2000);
+
+    } catch (e) {
+      showError('ネットワークエラーが発生しました');
+    }
+  }
+
+  async function poll(stateId) {
+    try {
+      const resp = await fetch(`/api/vc/issuance-response?id=${stateId}`);
+      const data = await resp.json();
+
+      if (data.status === 'issued') {
+        clearInterval(_pollTimer);
+        _pollTimer = null;
+        show('view-done');
+      } else if (data.status === 'error') {
+        clearInterval(_pollTimer);
+        _pollTimer = null;
+        showError(data.message || '発行エラーが発生しました');
+      } else if (data.status === 'request_retrieved') {
+        document.getElementById('qr-status').textContent = 'Authenticator で確認中...';
+      }
+    } catch (_) {
+      // ネットワーク一時エラーは無視してポーリング継続
+    }
+  }
+
+  function showError(msg) {
+    document.getElementById('error-message').textContent = msg;
+    show('view-error');
+  }
+</script>
+{% endblock %}

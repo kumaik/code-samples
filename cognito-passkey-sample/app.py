@@ -18,6 +18,8 @@ from flask import (
 
 load_dotenv()
 
+import verified_id
+
 import pyotp
 import qrcode
 import qrcode.image.svg
@@ -26,6 +28,12 @@ import cognito  # noqa: E402
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24))
+
+# Verified ID コールバック検証用 API キー（起動時に生成）
+_VC_API_KEY = secrets.token_hex(32)
+
+# 発行リクエストの状態管理（state → {status, message}）
+_vc_cache: dict = {}
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "data.db")
 
@@ -424,6 +432,94 @@ def change_password():
             flash(str(e), "error")
 
     return render_template("password.html")
+
+
+# ---------------------------------------------------------------------------
+# Verified ID 発行
+# ---------------------------------------------------------------------------
+
+
+@app.route("/vc/issue")
+@login_required
+def vc_issue():
+    """VC 発行ページ。"""
+    return render_template("vc_issue.html")
+
+
+@app.route("/api/vc/issuance-request", methods=["POST"])
+@login_required
+def vc_issuance_request():
+    """Cognito ユーザー属性を取得し Verified ID 発行リクエストを作成する。"""
+    try:
+        attrs = cognito.get_user_attributes(session["access_token"])
+    except cognito.AuthError as e:
+        return jsonify({"error": str(e)}), 400
+
+    claims = {
+        "username":    attrs.get("email", ""),
+        "name":        attrs.get("name", ""),
+        "given_name":  attrs.get("given_name", ""),
+        "family_name": attrs.get("family_name", ""),
+    }
+
+    callback_base_url = os.environ.get("VC_CALLBACK_BASE_URL", "").rstrip("/")
+    if not callback_base_url:
+        return jsonify({"error": "VC_CALLBACK_BASE_URL が設定されていません（ngrok URL を設定してください）"}), 500
+
+    try:
+        result = verified_id.create_issuance_request(claims, callback_base_url, _VC_API_KEY)
+    except verified_id.VCError as e:
+        return jsonify({"error": str(e)}), 500
+
+    _vc_cache[result["state"]] = {
+        "status": "request_created",
+        "message": "QR コードをスキャンしてください",
+    }
+
+    return jsonify({
+        "id":     result["state"],
+        "url":    result.get("url"),
+        "qrCode": result.get("qrCode"),
+        "expiry": result.get("expiry"),
+    }), 201
+
+
+@app.route("/api/vc/issuance-callback", methods=["POST"])
+def vc_issuance_callback():
+    """Verified ID からのコールバックを受信する。"""
+    api_key = request.headers.get("api-key", "")
+    if api_key != _VC_API_KEY:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.get_json(silent=True) or {}
+    state = data.get("state")
+    code = data.get("code")          # issuance_successful | issuance_error 等
+    error = data.get("error", {})
+
+    if not state or state not in _vc_cache:
+        return jsonify({"error": "unknown state"}), 400
+
+    if code == "issuance_successful":
+        _vc_cache[state] = {"status": "issued", "message": "発行完了"}
+    elif code == "issuance_error":
+        _vc_cache[state] = {
+            "status": "error",
+            "message": error.get("message", "発行エラーが発生しました"),
+        }
+    else:
+        _vc_cache[state] = {"status": code, "message": ""}
+
+    return jsonify({"status": "ok"})
+
+
+@app.route("/api/vc/issuance-response")
+@login_required
+def vc_issuance_response():
+    """ブラウザのポーリングに応答する。"""
+    state = request.args.get("id")
+    if not state or state not in _vc_cache:
+        return jsonify({"status": "unknown"}), 404
+    return jsonify(_vc_cache[state])
 
 
 # ---------------------------------------------------------------------------
