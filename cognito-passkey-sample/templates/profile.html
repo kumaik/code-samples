@@ -14,9 +14,22 @@
                style="background:#f5f6fa; color:#888; cursor:not-allowed;">
       </div>
       <div class="form-group">
-        <label for="name">名前</label>
+        <label for="given_name">名（Given Name）</label>
+        <input type="text" id="given_name" name="given_name"
+               value="{{ attrs.get('given_name', '') }}" autofocus
+               placeholder="例: 太郎">
+      </div>
+      <div class="form-group">
+        <label for="family_name">姓（Family Name）</label>
+        <input type="text" id="family_name" name="family_name"
+               value="{{ attrs.get('family_name', '') }}"
+               placeholder="例: 山田">
+      </div>
+      <div class="form-group">
+        <label for="name">表示名</label>
         <input type="text" id="name" name="name"
-               value="{{ attrs.get('name', '') }}" autofocus>
+               value="{{ attrs.get('name', '') }}"
+               placeholder="例: 山田 太郎">
       </div>
       <button type="submit" class="btn btn-primary" style="margin-top:0.5rem;">
         更新する
@@ -45,6 +58,16 @@
     </p>
     <a href="{{ url_for('mfa_setup') }}" class="btn btn-primary">TOTP を設定する</a>
     {% endif %}
+  </div>
+
+  <!-- デジタル証明書（VC） -->
+  <div class="card">
+    <h1>デジタル証明書（Verified Credential）</h1>
+    <p style="font-size:0.9rem; color:#666; margin-bottom:1rem;">
+      あなたのアカウント情報を Microsoft Authenticator のウォレットに
+      デジタル証明書として発行できます。
+    </p>
+    <a href="{{ url_for('vc_issue') }}" class="btn btn-primary">証明書を取得する</a>
   </div>
 
   <!-- パスキー管理 -->
