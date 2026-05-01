@@ -502,21 +502,21 @@ def vc_issuance_callback():
 
     data = request.get_json(silent=True) or {}
     state = data.get("state")
-    code = data.get("code")          # issuance_successful | issuance_error 等
+    request_status = data.get("requestStatus")   # Verified ID は requestStatus を使用
     error = data.get("error", {})
 
     if not state or state not in _vc_cache:
         return jsonify({"error": "unknown state"}), 400
 
-    if code == "issuance_successful":
+    if request_status == "issuance_successful":
         _vc_cache[state] = {"status": "issued", "message": "発行完了"}
-    elif code == "issuance_error":
+    elif request_status == "issuance_error":
         _vc_cache[state] = {
             "status": "error",
             "message": error.get("message", "発行エラーが発生しました"),
         }
     else:
-        _vc_cache[state] = {"status": code, "message": ""}
+        _vc_cache[state] = {"status": request_status, "message": ""}
 
     return jsonify({"status": "ok"})
 
