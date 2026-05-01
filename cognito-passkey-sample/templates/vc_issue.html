@@ -57,6 +57,14 @@
 
 <script>
   let _pollTimer = null;
+  let _currentStateId = null;
+
+  // Authenticator から戻ったとき（タブが前面に出たとき）即時ポーリング
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && _currentStateId) {
+      poll(_currentStateId);
+    }
+  });
 
   function show(viewId) {
     ['view-start', 'view-qr', 'view-done', 'view-error'].forEach(id => {
@@ -66,6 +74,7 @@
 
   function resetView() {
     if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+    _currentStateId = null;
     show('view-start');
   }
 
@@ -88,6 +97,7 @@
       document.getElementById('qr-status').textContent = 'スキャン待ち...';
 
       // ポーリング開始
+      _currentStateId = data.id;
       _pollTimer = setInterval(() => poll(data.id), 2000);
 
     } catch (e) {
@@ -103,10 +113,12 @@
       if (data.status === 'issued') {
         clearInterval(_pollTimer);
         _pollTimer = null;
+        _currentStateId = null;
         show('view-done');
       } else if (data.status === 'error') {
         clearInterval(_pollTimer);
         _pollTimer = null;
+        _currentStateId = null;
         showError(data.message || '発行エラーが発生しました');
       } else if (data.status === 'request_retrieved') {
         document.getElementById('qr-status').textContent = 'Authenticator で確認中...';
