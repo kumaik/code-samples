@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}TOTPの設定{% endblock %}
+
+{% block content %}
+<div style="max-width: 440px; margin: 2rem auto;">
+  <div class="card">
+    <h1>認証アプリの設定</h1>
+    <p style="font-size:0.9rem; color:#666; margin-bottom:1.5rem;">
+      Google Authenticator や Authy などの認証アプリでQRコードをスキャンしてください。
+      スキャンできない場合はシークレットキーを手動で入力してください。
+    </p>
+
+    <!-- QR コード -->
+    <div style="text-align:center; margin-bottom:1.2rem;">
+      {{ qr_svg | safe }}
+    </div>
+
+    <!-- シークレットキー -->
+    <div style="margin-bottom:1.5rem;">
+      <label style="display:block; font-size:0.82rem; color:#888; margin-bottom:0.3rem;">シークレットキー（手動入力用）</label>
+      <code style="display:block; background:#f5f6fa; padding:0.6rem 0.8rem; border-radius:4px;
+                   font-size:0.95rem; letter-spacing:0.1em; word-break:break-all;">{{ secret }}</code>
+    </div>
+
+    {% if error %}
+    <p style="color:#e74c3c; font-size:0.88rem; margin-bottom:1rem;">✗ {{ error }}</p>
+    {% endif %}
+
+    <!-- コード検証フォーム -->
+    <form method="POST">
+      <div class="form-group">
+        <label for="code">認証アプリに表示された6桁のコード</label>
+        <input type="text" id="code" name="code"
+               inputmode="numeric" pattern="[0-9]*" maxlength="6"
+               autocomplete="one-time-code" autofocus
+               placeholder="000000"
+               style="text-align:center; font-size:1.4rem; letter-spacing:0.3em;">
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%; margin-top:0.5rem;">
+        設定を完了する
+      </button>
+    </form>
+
+    <p style="text-align:center; margin-top:1.2rem; font-size:0.85rem; color:#999;">
+      <a href="{{ url_for('profile') }}">プロフィールに戻る</a>
+    </p>
+  </div>
+</div>
+{% endblock %}
